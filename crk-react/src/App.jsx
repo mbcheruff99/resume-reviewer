@@ -29,6 +29,7 @@ function App() {
   const [bossCandidates, setBossCandidates] = useState([])
   const [selectedCandidateBossId, setSelectedCandidateBossId] = useState(null)
   const [recruiterNotifications, setRecruiterNotifications] = useState([])
+  const [resumePdfFile, setResumePdfFile] = useState(null)
 
   const [jobForm, setJobForm] = useState({
     title: '',
@@ -40,7 +41,6 @@ function App() {
     name: '',
     email: '',
     linkedin: '',
-    resumeUrl: '',
     notes: '',
   })
 
@@ -130,18 +130,24 @@ function App() {
   async function handleCreateCandidate(e) {
     e.preventDefault()
     if (!selectedJobRecruiter || !candidateForm.name.trim()) return
+
+    const resumeUrl = resumePdfFile ? URL.createObjectURL(resumePdfFile) : ''
+    const resumeFileName = resumePdfFile ? resumePdfFile.name : ''
+
     const res = await api.post(
       `/jobs/${selectedJobRecruiter}/candidates`,
-      candidateForm,
+      { ...candidateForm, resumeUrl, resumeFileName },
     )
     const created = res.data
     setCandidateForm({
       name: '',
       email: '',
       linkedin: '',
-      resumeUrl: '',
       notes: '',
     })
+    setResumePdfFile(null)
+    const fileInput = document.getElementById('candidate-resume-pdf')
+    if (fileInput) fileInput.value = ''
 
     setRecruiterCandidates((prev) => [created, ...prev])
 
@@ -407,19 +413,21 @@ function App() {
                         />
                       </div>
                       <div className="field">
-                        <label htmlFor="candidate-resume">Resume URL</label>
+                        <label htmlFor="candidate-resume-pdf">Resume (PDF)</label>
                         <input
-                          id="candidate-resume"
-                          type="url"
-                          placeholder="https://drive.google.com/..."
-                          value={candidateForm.resumeUrl}
-                          onChange={(e) =>
-                            setCandidateForm((f) => ({
-                              ...f,
-                              resumeUrl: e.target.value,
-                            }))
-                          }
+                          id="candidate-resume-pdf"
+                          type="file"
+                          accept="application/pdf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] ?? null
+                            setResumePdfFile(file)
+                          }}
                         />
+                        {resumePdfFile ? (
+                          <span className="muted">{resumePdfFile.name}</span>
+                        ) : (
+                          <span className="muted">Choose a PDF file.</span>
+                        )}
                       </div>
                     </div>
                     <div className="field">
@@ -720,8 +728,12 @@ function App() {
                             className="link"
                           >
                             {selectedCandidateBoss.resumeUrl
-                              ? 'Open resume'
-                              : 'No resume URL'}
+                              ? `Open resume${
+                                  selectedCandidateBoss.resumeFileName
+                                    ? ` (${selectedCandidateBoss.resumeFileName})`
+                                    : ''
+                                }`
+                              : 'No resume uploaded'}
                           </a>
                         </p>
                       </div>
